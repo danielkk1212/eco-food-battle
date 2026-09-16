@@ -1,0 +1,13 @@
+{
+  "name": "eco-food-battle",
+  "version": "1.0.0",
+  "description": "친환경 음식 실시간 2인 퀴즈",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  }
+}

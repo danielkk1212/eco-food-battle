@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>친환경 음식 배틀</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:#f3f7f2;color:#203126}
+.wrap{max-width:760px;margin:0 auto;padding:28px 18px}
+.card{background:white;border-radius:20px;padding:28px;box-shadow:0 8px 25px #00000012;margin-bottom:18px}
+h1{margin:0 0 8px;text-align:center;font-size:32px}
+.sub{text-align:center;color:#66736a;margin-bottom:24px}
+input{width:100%;padding:14px;border:1px solid #ccd7cf;border-radius:12px;font-size:16px;margin:7px 0}
+button{width:100%;padding:14px;border:0;border-radius:12px;background:#2f7d4b;color:white;font-size:16px;font-weight:bold;cursor:pointer;margin-top:8px}
+button:disabled{background:#b9c2bc;cursor:not-allowed}
+.secondary{background:#64756b}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hidden{display:none}
+.code{font-size:38px;font-weight:bold;text-align:center;letter-spacing:7px;background:#eef7ef;border-radius:15px;padding:18px;margin:15px 0}
+.players{display:grid;gap:10px;margin:18px 0}
+.player{padding:13px;border-radius:12px;background:#f3f6f3;display:flex;justify-content:space-between}
+.question{font-size:23px;font-weight:bold;line-height:1.45;margin:20px 0}
+.option{text-align:left;background:#eef3ef;color:#203126;margin:9px 0}
+.option:hover{background:#dce9df}
+.scorebar{display:flex;justify-content:space-between;font-weight:bold;margin-bottom:15px}
+.msg{text-align:center;color:#c0392b;min-height:24px;margin:8px}
+.result{text-align:center;font-size:22px;padding:15px}
+.small{text-align:center;color:#6d786f;font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card" id="home">
+    <h1>🌱 친환경 음식 배틀</h1>
+    <div class="sub">두 기기에서 실시간으로 대결해 보세요!</div>
+    <input id="name" maxlength="20" placeholder="내 이름">
+    <div class="row">
+      <button onclick="createRoom()">방 만들기</button>
+      <button class="secondary" onclick="showJoin()">방 참가</button>
+    </div>
+    <div id="joinBox" class="hidden">
+      <input id="roomCode" maxlength="6" placeholder="6자리 방 코드">
+      <button onclick="joinRoom()">이 방 참가하기</button>
+    </div>
+    <div id="msg" class="msg"></div>
+  </div>
+
+  <div class="card hidden" id="waiting">
+    <h2>대기실</h2>
+    <div class="small">친구에게 이 방 코드를 알려주세요.</div>
+    <div class="code" id="code">------</div>
+    <div class="players" id="players"></div>
+    <button id="startBtn" onclick="startGame()">게임 시작</button>
+    <button class="secondary" onclick="location.reload()">나가기</button>
+  </div>
+
+  <div class="card hidden" id="game">
+    <div class="scorebar">
+      <span id="myScore">내 점수: 0</span>
+      <span id="otherScore">상대 점수: 0</span>
+    </div>
+    <div class="small" id="progress">1 / 10</div>
+    <div class="question" id="question"></div>
+    <div id="options"></div>
+    <div class="small" id="answerStatus"></div>
+  </div>
+
+  <div class="card hidden" id="result">
+    <h2>🏆 게임 종료!</h2>
+    <div id="resultText" class="result"></div>
+    <button onclick="location.reload()">다시 하기</button>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+let myId = null;
+let myName = "";
+let isHost = false;
+let myAnswered = false;
+
+socket.on("connect", () => { myId = socket.id; });
+
+const $ = id => document.getElementById(id);
+
+function msg(text){ $("msg").textContent = text || ""; }
+
+function createRoom(){
+  myName = $("name").value.trim();
+  if(!myName) return msg("이름을 입력해주세요.");
+  socket.emit("createRoom", myName);
+}
+
+function showJoin(){
+  $("joinBox").classList.remove("hidden");
+  $("roomCode").focus();
+}
+
+function joinRoom(){
+  myName = $("name").value.trim();
+  const code = $("roomCode").value.trim().toUpperCase();
+  if(!myName) return msg("이름을 먼저 입력해주세요.");
+  if(code.length !== 6) return msg("방 코드는 6자리입니다.");
+  socket.emit("joinRoom", {name:myName, code});
+}
+
+socket.on("roomCreated", data => {
+  isHost = true;
+  openWaiting(data.code, data.info);
+});
+
+socket.on("roomUpdated", info => {
+  if(!$("waiting").classList.contains("hidden")) updatePlayers(info);
+});
+
+socket.on("playerLeft", () => {
+  if(!$("game").classList.contains("hidden")){
+    $("game").classList.add("hidden");
+    $("waiting").classList.remove("hidden");
+    msg("상대방이 나갔습니다.");
+  }
+});
+
+function openWaiting(code, info){
+  $("home").classList.add("hidden");
+  $("waiting").classList.remove("hidden");
+  $("code").textContent = code;
+  updatePlayers(info);
+}
+
+function updatePlayers(info){
+  $("players").innerHTML = info.players.map((p,i) =>
+    `<div class="player"><span>${i===0?"👑 ":""}${escapeHtml(p.name)}</span><span>${p.score}P</span></div>`
+  ).join("");
+  $("startBtn").disabled = !(isHost && info.players.length === 2);
+  $("startBtn").textContent = info.players.length === 2 ? "게임 시작" : "상대방을 기다리는 중...";
+}
+
+function startGame(){ socket.emit("startGame"); }
+
+socket.on("gameStarted", () => {
+  $("waiting").classList.add("hidden");
+  $("game").classList.remove("hidden");
+});
+
+socket.on("question", data => {
+  myAnswered = false;
+  $("progress").textContent = `${data.index + 1} / ${data.total}`;
+  $("question").textContent = data.question;
+  $("answerStatus").textContent = "정답을 골라주세요!";
+  $("options").innerHTML = data.options.map((o,i) =>
+    `<button class="option" onclick="answer(${i},this)">${i+1}. ${escapeHtml(o)}</button>`
+  ).join("");
+});
+
+function answer(index, btn){
+  if(myAnswered) return;
+  myAnswered = true;
+  document.querySelectorAll(".option").forEach(b => b.disabled = true);
+  btn.style.background = "#b8d9bf";
+  $("answerStatus").textContent = "답을 제출했습니다. 상대방을 기다리는 중...";
+  socket.emit("answer", index);
+}
+
+socket.on("scores", scores => {
+  const me = scores.find(p => p.id === myId);
+  const other = scores.find(p => p.id !== myId);
+  $("myScore").textContent = `내 점수: ${me ? me.score : 0}`;
+  $("otherScore").textContent = `상대 점수: ${other ? other.score : 0}`;
+});
+
+socket.on("gameOver", data => {
+  $("game").classList.add("hidden");
+  $("result").classList.remove("hidden");
+
+  const sorted = [...data.results].sort((a,b) => b.score-a.score);
+  if(sorted.length === 2 && sorted[0].score === sorted[1].score){
+    $("resultText").innerHTML = `🤝 무승부!<br><br>${escapeHtml(sorted[0].name)} ${sorted[0].score}점<br>${escapeHtml(sorted[1].name)} ${sorted[1].score}점`;
+  } else {
+    $("resultText").innerHTML = `🎉 ${escapeHtml(sorted[0].name)} 승리!<br><br>${escapeHtml(sorted[0].name)} ${sorted[0].score}점<br>${escapeHtml(sorted[1].name)} ${sorted[1].score}점`;
+  }
+});
+
+socket.on("errorMessage", text => msg(text));
+
+function escapeHtml(text){
+  return String(text).replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  }[c]));
+}
+</script>
+</body>
+</html>
