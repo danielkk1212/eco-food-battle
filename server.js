@@ -1,155 +1,158 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
+const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const PORT = process.env.PORT || 3000;
-app.use(express.static("public"));
-
-const questions = [
-  ["친환경 음식이란 무엇일까요?", ["환경을 생각하여 생산·유통·소비되는 음식","가격이 가장 비싼 음식","포장이 가장 화려한 음식","외국에서만 생산되는 음식"], 0],
-  ["친환경 음식이 환경에 좋은 이유는 무엇일까요?", ["음식을 더 많이 버리게 하기 때문","환경 오염과 자원 낭비를 줄이는 데 도움이 되기 때문","음식의 가격을 무조건 올리기 때문","모든 음식을 냉동하기 때문"], 1],
-  ["제철 식재료를 사용하는 것의 장점은 무엇일까요?", ["필요한 에너지와 자원 사용을 줄이는 데 도움이 된다","항상 수입해야 한다","음식물 쓰레기가 반드시 늘어난다","모든 식재료를 비싸게 만든다"], 0],
-  ["지역에서 생산된 식재료를 먹으면 어떤 효과가 있을까요?", ["운송 거리를 줄여 환경 부담을 낮추는 데 도움이 된다","운송 거리가 반드시 길어진다","음식을 모두 수입하게 된다","음식물 쓰레기가 반드시 늘어난다"], 0],
-  ["친환경 음식과 관련이 가장 적은 것은 무엇일까요?", ["제철 식재료 사용","지역 식재료 이용","음식물 쓰레기 줄이기","필요 이상으로 일회용품 사용하기"], 3],
-  ["음식이 우리 식탁에 오기까지 발생하는 환경 문제와 관련 있는 것은 무엇일까요?", ["식재료의 생산과 운송 과정에서 발생하는 탄소 배출","책의 글자 크기","연필의 길이","교실의 칠판 크기"], 0],
-  ["친환경 음식을 선택할 때 고려할 수 있는 것은 무엇일까요?", ["제철인지, 지역에서 생산되었는지 등을 살펴본다","포장지가 가장 큰 제품만 고른다","무조건 가장 비싼 음식을 고른다","음식을 많이 남길 수 있는지를 본다"], 0],
-  ["음식물 쓰레기를 줄이는 방법으로 알맞은 것은 무엇일까요?", ["먹을 만큼만 덜어 먹는다","먹지 않을 음식도 많이 산다","남은 음식을 모두 버린다","음식을 필요 이상으로 만든다"], 0],
-  ["친환경 음식의 소비가 늘어나면 기대할 수 있는 변화는 무엇일까요?", ["환경을 고려한 생산과 소비가 늘어날 수 있다","모든 음식이 사라진다","음식물 쓰레기가 반드시 늘어난다","자원이 무조건 더 많이 낭비된다"], 0],
-  ["우리가 실천할 수 있는 친환경 식생활은 무엇일까요?", ["먹을 만큼만 구매하고 음식물 쓰레기를 줄인다","남길 것을 생각하지 않고 많이 산다","일회용품을 항상 많이 사용한다","제철 식재료를 일부러 피한다"], 0]
-].map(([question, options, answer]) => ({question, options, answer}));
+app.use(express.static(path.join(__dirname, "public")));
 
 const rooms = new Map();
 
-function makeCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code;
-  do {
-    code = Array.from({length: 6}, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-  } while (rooms.has(code));
-  return code;
-}
+const questions = [
+  ["친환경 음식이란 무엇일까요?", ["환경을 생각하여 생산한 음식", "가격이 가장 비싼 음식", "외국에서만 생산되는 음식", "포장지가 화려한 음식"], 0],
+  ["친환경 음식이 환경에 좋은 이유는 무엇일까요?", ["쓰레기를 많이 만들기 때문에", "환경에 미치는 영향을 줄일 수 있기 때문에", "운송 거리가 길기 때문에", "물을 많이 사용하기 때문에"], 1],
+  ["제철 식재료를 사용하는 것의 장점은 무엇일까요?", ["불필요한 에너지 사용을 줄일 수 있다", "항상 해외에서 가져온다", "포장 쓰레기가 늘어난다", "운송 거리가 길어진다"], 0],
+  ["지역에서 생산된 식재료를 먹으면 어떤 효과가 있을까요?", ["운송 과정에서 발생하는 환경 부담을 줄일 수 있다", "운송 거리가 늘어난다", "포장재 사용이 많아진다", "음식물 쓰레기가 반드시 늘어난다"], 0],
+  ["친환경 음식과 관련이 가장 적은 것은 무엇일까요?", ["제철 식재료", "지역 식재료", "적은 포장", "일회용품 많이 사용하기"], 3],
+  ["음식이 우리 식탁에 오기까지 발생하는 환경 문제와 관련 있는 것은 무엇일까요?", ["식재료의 생산과 운송", "음식의 색깔", "접시의 모양", "식탁의 크기"], 0],
+  ["친환경 음식을 선택할 때 고려할 수 있는 것은 무엇일까요?", ["식재료의 생산 방법", "포장지의 크기만 보기", "광고만 보기", "음식의 이름만 보기"], 0],
+  ["음식물 쓰레기를 줄이는 방법으로 알맞은 것은 무엇일까요?", ["먹을 만큼만 준비한다", "음식을 필요 이상으로 많이 만든다", "남은 음식을 모두 버린다", "포장지를 더 많이 사용한다"], 0],
+  ["친환경 음식의 소비가 늘어나면 기대할 수 있는 변화는 무엇일까요?", ["환경을 생각하는 식생활이 확산될 수 있다", "환경오염이 반드시 증가한다", "음식 생산이 모두 중단된다", "모든 음식의 가격이 같아진다"], 0],
+  ["우리가 실천할 수 있는 친환경 식생활은 무엇일까요?", ["지역·제철 식재료를 선택하기", "음식물을 많이 남기기", "일회용품을 많이 사용하기", "필요 없는 음식을 많이 구매하기"], 0],
 
-function roomInfo(room) {
-  return {
-    players: room.players.map(p => ({id:p.id, name:p.name, score:p.score})),
-    started: room.started
-  };
-}
+  ["탄소발자국이란 무엇을 나타내는 말일까요?", ["활동이나 제품에서 발생하는 온실가스 배출량", "발자국의 크기", "음식의 무게", "토양의 색깔"], 0],
+  ["식품의 생산과 운송에서 주로 문제가 되는 온실가스는 무엇일까요?", ["이산화탄소 등 온실가스", "산소만", "수증기만", "헬륨"], 0],
+  ["로컬푸드란 일반적으로 무엇을 뜻할까요?", ["지역에서 생산되어 가까운 곳에서 소비되는 식품", "외국에서만 생산되는 식품", "오래 보관한 식품", "포장만 친환경인 식품"], 0],
+  ["로컬푸드를 선택하면 줄이는 데 도움이 될 수 있는 것은 무엇일까요?", ["장거리 운송에 필요한 환경 부담", "모든 농업 활동", "음식의 영양소", "식재료의 종류"], 0],
+  ["제철 과일을 고르는 이유로 알맞은 것은 무엇일까요?", ["자연적인 재배 시기에 맞춰 생산할 수 있기 때문이다", "항상 비행기로 운송되기 때문이다", "포장지가 더 크기 때문이다", "무조건 가격이 비싸기 때문이다"], 0],
+  ["다음 중 음식물 쓰레기를 줄이는 행동은 무엇일까요?", ["냉장고에 있는 식재료를 확인하고 필요한 만큼 구매하기", "먹지 않을 음식까지 많이 사기", "남은 음식을 바로 버리기", "한 번에 너무 많이 조리하기"], 0],
+  ["음식물 쓰레기가 많이 발생하면 어떤 문제가 생길 수 있을까요?", ["처리 과정에서 자원과 에너지가 필요하다", "자원이 자동으로 늘어난다", "쓰레기가 모두 사라진다", "운송이 필요 없어지는 것이다"], 0],
+  ["장바구니를 사용하는 이유로 알맞은 것은?", ["일회용 봉투 사용을 줄이는 데 도움이 된다", "식품을 더 많이 버리게 한다", "음식의 유통기한을 없앤다", "농사를 대신한다"], 0],
+  ["다회용 용기를 사용하는 행동의 장점은?", ["일회용 용기 사용을 줄이는 데 도움이 된다", "모든 음식의 가격을 낮춘다", "식재료를 생산하지 않아도 된다", "물을 전혀 사용하지 않게 한다"], 0],
+  ["과대포장이란 무엇일까요?", ["상품에 비해 필요 이상으로 포장하는 것", "음식을 제철에 먹는 것", "지역에서 생산하는 것", "음식을 나누어 먹는 것"], 0],
 
-function sendQuestion(code, room) {
-  const q = questions[room.questionIndex];
-  io.to(code).emit("question", {
-    index: room.questionIndex,
-    total: questions.length,
-    question: q.question,
-    options: q.options
-  });
+  ["친환경 농업에서 중요하게 생각할 수 있는 것은?", ["토양과 생태계를 고려하는 농업", "쓰레기를 무조건 많이 만드는 것", "물을 낭비하는 것", "농지를 모두 포장하는 것"], 0],
+  ["농업에서 물을 아껴 사용하는 이유는?", ["소중한 수자원을 효율적으로 이용하기 위해", "농작물을 모두 없애기 위해", "식품의 포장을 늘리기 위해", "운송 거리를 늘리기 위해"], 0],
+  ["다음 중 물 절약에 도움이 되는 행동은?", ["필요한 만큼만 물을 사용하기", "물을 계속 틀어 놓기", "사용하지 않는 수도를 켜 두기", "음식물을 물에 계속 흘려보내기"], 0],
+  ["친환경 식생활에서 '필요한 만큼 구매하기'가 중요한 이유는?", ["남는 음식과 자원 낭비를 줄이는 데 도움이 되기 때문", "포장 쓰레기를 반드시 늘리기 때문", "운송 거리를 늘리기 때문", "음식을 더 많이 버리기 때문"], 0],
+  ["냉장고 속 식재료를 먼저 확인하면 어떤 점이 좋을까요?", ["이미 가진 식재료를 활용해 불필요한 구매를 줄일 수 있다", "음식을 더 많이 버리게 된다", "포장을 더 많이 하게 된다", "식재료가 모두 상하게 된다"], 0],
+  ["남은 음식을 활용하는 방법으로 알맞은 것은?", ["상태가 괜찮다면 다른 요리에 활용하기", "무조건 바로 버리기", "필요 이상으로 다시 만들기", "포장만 늘리기"], 0],
+  ["식품을 보관할 때 음식물 쓰레기를 줄이는 데 도움이 되는 행동은?", ["식재료에 맞는 방법으로 적절히 보관하기", "모든 식품을 아무렇게나 두기", "먹을 수 있는 음식도 버리기", "냉장고 문을 계속 열어 두기"], 0],
+  ["식품의 유통기한이나 소비기한을 확인하는 습관이 도움이 되는 이유는?", ["식품을 안전하고 계획적으로 소비하는 데 도움이 되기 때문", "음식을 더 많이 남기기 때문", "포장재를 늘리기 때문", "운송 거리를 늘리기 때문"], 0],
+  ["채소의 잎이나 줄기 등 먹을 수 있는 부분을 활용하면?", ["버려지는 식재료를 줄일 수 있다", "음식물 쓰레기가 반드시 늘어난다", "물을 더 많이 낭비한다", "포장 쓰레기가 반드시 늘어난다"], 0],
+  ["식생활에서 자원을 절약하는 방법으로 알맞은 것은?", ["먹을 만큼 조리하고 남은 음식은 알맞게 보관하기", "필요 이상으로 조리하기", "먹을 수 있는 음식까지 버리기", "일회용품을 계속 사용하기"], 0],
+
+  ["다음 중 재활용과 관련된 올바른 행동은?", ["재활용품을 종류에 맞게 분리배출하기", "모든 쓰레기를 한 봉투에 넣기", "내용물이 남은 용기를 그대로 버리기", "재활용품을 음식물 쓰레기와 섞기"], 0],
+  ["재활용하기 전에 용기의 내용물을 비우는 이유는?", ["재활용이 원활하게 이루어지도록 돕기 위해", "용기를 더 무겁게 만들기 위해", "쓰레기를 늘리기 위해", "음식을 보관하기 위해"], 0],
+  ["일회용 컵 대신 개인 컵을 사용하는 행동은 무엇을 줄이는 데 도움이 될까요?", ["일회용품 사용량", "식재료의 종류", "농작물의 수확량", "음식의 영양소"], 0],
+  ["비닐봉지 사용을 줄이는 방법은?", ["장바구니나 다회용 가방 사용하기", "필요한 것보다 더 많이 받기", "봉투를 바로 버리기", "매번 여러 장 사용하기"], 0],
+  ["친환경 식생활에서 포장재가 적은 제품을 선택할 때 기대할 수 있는 점은?", ["포장 폐기물을 줄이는 데 도움이 될 수 있다", "음식물 쓰레기가 반드시 늘어난다", "운송 거리가 반드시 늘어난다", "모든 제품의 가격이 같아진다"], 0],
+  ["종이 포장이라고 해서 항상 환경에 가장 좋은 선택이라고 단정할 수 없는 이유는?", ["제품의 생산·운송·사용·폐기 등 여러 과정을 함께 살펴봐야 하기 때문", "종이는 항상 공장에서 자동으로 만들어지기 때문", "종이는 재활용할 수 없기 때문", "모든 종이는 같은 방식으로 생산되기 때문"], 0],
+  ["환경을 생각하는 식품 선택에서 한 가지 정보만 보지 않는 것이 중요한 이유는?", ["생산부터 소비까지 여러 환경 영향을 함께 볼 수 있기 때문", "광고만 보면 모든 것을 알 수 있기 때문", "포장만 보면 생산 방법을 알 수 있기 때문", "가격만 보면 환경 영향을 알 수 있기 때문"], 0],
+  ["식품을 남기지 않는 것과 관련된 가장 알맞은 행동은?", ["먹을 수 있는 양을 예상해 적당히 담기", "처음부터 많이 담기", "남기고 버리기", "필요 없는 음식을 추가로 담기"], 0],
+  ["학교 급식에서 친환경 식생활을 실천하는 방법은?", ["먹을 만큼만 받고 음식물을 남기지 않도록 노력하기", "싫지 않은 음식도 모두 버리기", "필요 이상으로 많이 받기", "일회용품을 일부러 많이 사용하기"], 0],
+  ["친구들과 음식을 나눠 먹을 때 좋은 점은?", ["필요한 만큼 먹고 음식 낭비를 줄이는 데 도움이 될 수 있다", "음식물 쓰레기가 반드시 늘어난다", "포장 쓰레기가 반드시 늘어난다", "물을 더 많이 낭비한다"], 0],
+
+  ["식물성 식품을 선택하는 것이 친환경 식생활과 관련될 수 있는 이유는?", ["식품 종류와 생산 방식에 따라 환경 영향이 달라질 수 있기 때문", "모든 식물성 식품은 환경 영향을 전혀 주지 않기 때문", "식물은 운송이 필요 없기 때문", "식물성 식품은 항상 지역에서만 생산되기 때문"], 0],
+  ["친환경 식생활에서 중요한 태도는 무엇일까요?", ["환경 영향을 생각하면서 지속적으로 실천하기", "한 번 실천하고 다시 하지 않기", "필요 없는 음식을 많이 구매하기", "쓰레기를 줄이는 행동을 피하기"], 0],
+  ["환경을 생각한 식품 선택을 할 때 가장 적절한 태도는?", ["여러 정보를 살펴보고 상황에 맞게 선택하기", "광고 문구만 보고 결정하기", "포장 색깔만 보고 결정하기", "가격만 보고 환경 영향을 판단하기"], 0],
+  ["식품의 이동 거리가 길어지면 일반적으로 어떤 과정이 더 필요할 수 있을까요?", ["운송 과정", "농작물의 성장 과정이 사라진다", "음식의 조리 과정이 항상 사라진다", "포장 과정이 반드시 없어지는 것이다"], 0],
+  ["지역 농산물을 이용할 때 기대할 수 있는 또 다른 장점은?", ["지역 농가와 지역 경제를 지원하는 데 도움이 될 수 있다", "모든 식품 생산이 중단된다", "음식의 종류가 반드시 하나로 줄어든다", "농업이 필요 없어지는 것이다"], 0],
+  ["친환경 식생활을 실천할 때 가장 현실적인 방법은?", ["일상에서 실천할 수 있는 작은 행동부터 꾸준히 하기", "모든 음식을 한꺼번에 바꾸기", "아무것도 하지 않기", "먹지 않는 것만 선택하기"], 0],
+  ["다음 중 지속가능한 식생활과 가장 가까운 행동은?", ["자원과 환경을 생각하며 음식물을 적절히 소비하기", "음식을 최대한 많이 버리기", "필요 없는 포장을 계속 사용하기", "물을 필요 이상으로 사용하기"], 0],
+  ["음식을 소중히 여기는 행동으로 알맞은 것은?", ["식재료를 계획적으로 구매하고 남김을 줄이기", "필요 이상으로 구매하기", "먹을 수 있는 음식 버리기", "남은 음식을 관리하지 않기"], 0],
+  ["친환경 식생활의 목표를 가장 잘 나타낸 것은?", ["환경과 자원을 생각하면서 건강하고 지속가능하게 먹는 것", "무조건 비싼 음식만 먹는 것", "모든 음식을 수입하는 것", "포장지를 많이 사용하는 것"], 0],
+  ["우리가 친환경 식생활을 실천해야 하는 이유로 가장 알맞은 것은?", ["현재와 미래의 환경과 자원을 함께 생각하기 위해", "쓰레기를 더 많이 만들기 위해", "음식을 더 많이 남기기 위해", "불필요한 소비를 늘리기 위해"], 0]
+];
+
+function code() {
+  return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
 io.on("connection", socket => {
   socket.on("createRoom", name => {
-    name = String(name || "").trim().slice(0,20);
-    if (!name) return socket.emit("errorMessage","이름을 입력해주세요.");
-
-    const code = makeCode();
-    const room = {
-      hostId: socket.id,
-      players: [{id:socket.id, name, score:0, answered:false}],
-      started: false,
-      questionIndex: 0
-    };
-
-    rooms.set(code, room);
-    socket.join(code);
-    socket.data.roomCode = code;
-    socket.emit("roomCreated", {code, isHost:true, info:roomInfo(room)});
+    let c = code();
+    while (rooms.has(c)) c = code();
+    rooms.set(c, {
+      players: [{ id: socket.id, name, score: 0 }],
+      question: 0,
+      answers: {},
+      started: false
+    });
+    socket.join(c);
+    socket.data.room = c;
+    socket.emit("roomCreated", { code: c, host: true, name });
   });
 
-  socket.on("joinRoom", data => {
-    const code = String(data?.code || "").trim().toUpperCase();
-    const name = String(data?.name || "").trim().slice(0,20);
-    const room = rooms.get(code);
-
-    if (!name) return socket.emit("errorMessage","이름을 입력해주세요.");
-    if (!room) return socket.emit("errorMessage","존재하지 않는 방입니다.");
-    if (room.started) return socket.emit("errorMessage","이미 시작된 방입니다.");
-    if (room.players.length >= 2) return socket.emit("errorMessage","방이 가득 찼습니다.");
-
-    room.players.push({id:socket.id, name, score:0, answered:false});
+  socket.on("joinRoom", ({ code, name }) => {
+    code = String(code || "").toUpperCase();
+    const r = rooms.get(code);
+    if (!r || r.players.length >= 2) {
+      socket.emit("joinError", { message: "방이 없거나 이미 2명이 참가했습니다." });
+      return;
+    }
+    r.players.push({ id: socket.id, name, score: 0 });
     socket.join(code);
-    socket.data.roomCode = code;
-    io.to(code).emit("roomUpdated", roomInfo(room));
+    socket.data.room = code;
+    io.to(code).emit("roomReady", { players: r.players.map(p => p.name) });
   });
 
   socket.on("startGame", () => {
-    const room = rooms.get(socket.data.roomCode);
-    if (!room || room.hostId !== socket.id) return;
-    if (room.players.length !== 2) return socket.emit("errorMessage","두 명이 모두 들어온 뒤 시작해주세요.");
-
-    room.started = true;
-    room.questionIndex = 0;
-    room.players.forEach(p => { p.score = 0; p.answered = false; });
-    io.to(socket.data.roomCode).emit("gameStarted", {total:questions.length});
-    sendQuestion(socket.data.roomCode, room);
+    const r = rooms.get(socket.data.room);
+    if (!r || r.players[0].id !== socket.id) return;
+    r.started = true;
+    r.question = 0;
+    r.answers = {};
+    io.to(socket.data.room).emit("gameStart", { questions });
   });
 
-  socket.on("answer", answerIndex => {
-    const code = socket.data.roomCode;
-    const room = rooms.get(code);
-    if (!room || !room.started) return;
+  socket.on("answer", choice => {
+    const room = socket.data.room;
+    const r = rooms.get(room);
+    if (!r || !r.started) return;
+    if (r.answers[socket.id] != null) return;
 
-    const player = room.players.find(p => p.id === socket.id);
-    if (!player || player.answered) return;
+    const q = questions[r.question];
+    r.answers[socket.id] = choice;
 
-    player.answered = true;
-    if (Number(answerIndex) === questions[room.questionIndex].answer) player.score += 10;
+    if (choice === q[2]) {
+      const player = r.players.find(p => p.id === socket.id);
+      if (player) player.score++;
+    }
 
-    io.to(code).emit("scores", room.players.map(p => ({id:p.id,name:p.name,score:p.score})));
+    io.to(room).emit("scoreUpdate", {
+      scores: r.players.map(p => ({ name: p.name, score: p.score }))
+    });
 
-    if (room.players.every(p => p.answered)) {
+    if (Object.keys(r.answers).length === 2) {
       setTimeout(() => {
-        const current = rooms.get(code);
-        if (!current || !current.started) return;
+        r.question++;
+        r.answers = {};
 
-        current.questionIndex++;
-        if (current.questionIndex >= questions.length) {
-          current.started = false;
-          io.to(code).emit("gameOver", {
-            results: current.players.map(p => ({id:p.id,name:p.name,score:p.score}))
+        if (r.question >= questions.length) {
+          io.to(room).emit("gameOver", {
+            players: r.players.map(p => ({ name: p.name, score: p.score }))
           });
-          return;
+          rooms.delete(room);
+        } else {
+          io.to(room).emit("nextQuestion", { index: r.question });
         }
-
-        current.players.forEach(p => p.answered = false);
-        sendQuestion(code, current);
       }, 700);
     }
   });
 
   socket.on("disconnect", () => {
-    const code = socket.data.roomCode;
-    const room = rooms.get(code);
-    if (!room) return;
-
-    room.players = room.players.filter(p => p.id !== socket.id);
-    if (room.players.length === 0) {
-      rooms.delete(code);
-      return;
+    const c = socket.data.room;
+    const r = rooms.get(c);
+    if (r) {
+      io.to(c).emit("opponentLeft");
+      rooms.delete(c);
     }
-
-    if (room.hostId === socket.id) room.hostId = room.players[0].id;
-    room.started = false;
-    io.to(code).emit("playerLeft");
-    io.to(code).emit("roomUpdated", roomInfo(room));
   });
 });
 
-app.get("/health", (req,res) => res.json({ok:true, message:"eco-food-battle server is running"}));
-
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, "0.0.0.0", () => console.log(`Server running on port ${PORT}`));

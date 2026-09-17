@@ -1,18 +1,4 @@
-# eco-food-battle
+# 친환경 음식 2인 대결
 
-친환경 음식 실시간 2인 퀴즈입니다.
-
-## 파일 구조
-
-server.js
-package.json
-public/index.html
-
-## Render 설정
-
-Build Command: npm install
-Start Command: npm start
-Plan: Free
-
-배포 후 `https://사이트주소.onrender.com`으로 접속하면 됩니다.
-두 기기에서 같은 주소에 접속한 뒤 한 명이 방을 만들고 다른 한 명이 6자리 방 코드로 참가합니다.
+친구와 방 코드를 공유해 2명이 실시간으로 겨루는 친환경 음식 퀴즈 게임입니다.
+총 50문제가 들어 있으며 모든 문제를 순서대로 진행합니다.
